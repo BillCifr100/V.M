@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TERMINAL_SYSTEM_2026</title>
+    <style>
+        body {
+            background-color: #000a00;
+            color: #00ff41; 
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        /* Линии развертки */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            z-index: 100;
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        .terminal-box {
+            border: 5px solid #00ff41;
+            padding: 40px;
+            background-color: #001500;
+            box-shadow: 0 0 30px #006400, inset 0 0 20px #004d00;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        #timer {
+            font-size: 4.5rem;
+            font-weight: 900;
+            margin: 25px 0;
+        }
+
+        #start-btn {
+            background: #00ff41;
+            color: #000;
+            border: 4px solid #008f24;
+            padding: 20px 40px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        /* Полноэкранное сообщение */
+        #activation-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #00ff41;
+            color: #000;
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            animation: strobe 0.1s infinite;
+        }
+
+        @keyframes strobe {
+            0% { background: #00ff41; }
+            50% { background: #008f24; }
+        }
+
+        #activation-overlay h1 {
+            font-size: 8vw;
+            margin: 0;
+            text-shadow: none;
+        }
+
+        .shake { transform: translate(2px, 1px); }
+    </style>
+</head>
+<body>
+
+    <div id="activation-overlay">
+        <h1>СИСТЕМА АКТИВИРОВАНА</h1>
+        <h2>[ SYSTEM ONLINE ]</h2>
+    </div>
+
+    <div class="terminal-box" id="main-box">
+        <div id="setup">
+            <button id="start-btn" onclick="initSystem()">ВХОД В СИСТЕМУ (RUN)</button>
+        </div>
+
+        <div id="content" style="display:none;">
+            <div style="font-size: 0.8rem;">КОНТРОЛЬ ВРЕМЕНИ: АКТИВЕН</div>
+            <div id="timer">000:00:00:00</div>
+            <div style="font-size: 0.8rem;">ЦЕЛЬ: 20.06.2026 | СТАТУС: ОЖИДАНИЕ</div>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx;
+        let systemActive = false;
+        let forceEnd = false;
+        const keysPressed = {};
+
+        function playSound(freq, type, duration, vol) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function activateSystem() {
+            systemActive = false;
+            document.getElementById('activation-overlay').style.display = 'flex';
+            
+            // Резкий, длинный писк при активации
+            if (audioCtx) {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                // Звук будет длиться долго
+            }
+        }
+
+        function initSystem() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+            systemActive = true;
+            loop();
+        }
+
+        function loop() {
+            if (!systemActive) return;
+
+            const target = new Date("June 20, 2026 00:00:00").getTime();
+            const now = new Date().getTime();
+            let diff = target - now;
+
+            if (forceEnd || diff <= 0) {
+                document.getElementById("timer").innerHTML = "000:00:00:00";
+                activateSystem();
+                return;
+            }
+
+            const days = Math.floor(diff / 86400000);
+            const hours = Math.floor((diff % 86400000) / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+
+            document.getElementById("timer").innerHTML = 
+                `${days.toString().padStart(3,'0')}:${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+            
+            playSound(150, 'sawtooth', 0.1, 0.1);
+            
+            document.getElementById('main-box').classList.add('shake');
+            setTimeout(() => document.getElementById('main-box').classList.remove('shake'), 50);
+
+            setTimeout(loop, 1000);
+        }
+
+        // Обработка комбинации клавиш B + I + L
+        window.addEventListener('keydown', (e) => {
+            keysPressed[e.key.toLowerCase()] = true;
+            if (keysPressed['b'] && keysPressed['i'] && keysPressed['l']) {
+                forceEnd = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key.toLowerCase()] = false;
+        });
+    </script>
+</body>
+</html>
